@@ -1,0 +1,48 @@
+name: Delete merged feature branch
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [dev]
+
+permissions: {}
+
+jobs:
+  delete-feature-branch:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.id == github.event.repository.id &&
+      startsWith(github.event.pull_request.head.ref, 'feat/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete the merged branch tip
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          MERGED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          [[ "$HEAD_BRANCH" == feat/* ]] || exit 0
+          ref="refs/heads/$HEAD_BRANCH"
+          git check-ref-format "$ref"
+
+          git_dir="$RUNNER_TEMP/feature-cleanup.git"
+          git init --bare --quiet "$git_dir"
+          cd "$git_dir"
+          git config --local --add credential.helper ''
+          git config --local --add credential.helper '!gh auth git-credential'
+
+          remote="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          current=$(git ls-remote "$remote" "$ref")
+          if [[ -z "$current" ]]; then
+            echo "Feature branch is already absent."
+            exit 0
+          fi
+          if [[ "$current" != "$MERGED_HEAD_SHA"$'\t'"$ref" ]]; then
+            echo "Feature branch has moved since the merge. Keeping it."
+            exit 0
+          fi
+
+          git push --force-with-lease="$ref:$MERGED_HEAD_SHA" "$remote" ":$ref"

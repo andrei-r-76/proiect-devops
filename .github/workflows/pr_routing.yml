@@ -1,0 +1,32 @@
+name: PR routing
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+jobs:
+  check-route:
+    name: Check PR routing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate source and target branches
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_REPO_ID: ${{ github.event.pull_request.head.repo.id }}
+        run: |
+          case "$PR_BASE:$PR_HEAD" in
+            dev:feat/?*) exit 0 ;;
+            main:dev)
+              if [[ "$PR_HEAD_REPO_ID" == "$GITHUB_REPOSITORY_ID" ]]; then
+                exit 0
+              fi
+              ;;
+          esac
+
+          echo "::error::Use feat/* into dev, or this repository's dev into main."
+          exit 1
