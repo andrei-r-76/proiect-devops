@@ -22,7 +22,7 @@ jobs:
           case "$PR_BASE:$PR_HEAD" in
             dev:feat/?*) exit 0 ;;
             main:dev)
-              if [[ "$PR_HEAD_REPO_ID" == "$GITHUB_REPOSITORY_ID" ]]; then
+              if [[ "$PR_HEAD_REPO_ID" == "$GITHUB_REPOSITORY_ID" ]]; then 
                 exit 0
               fi
               ;;
